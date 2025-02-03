@@ -8,7 +8,7 @@ object GamesAnalyzer {
   def topOpenings(df: DataFrame, topN: Int = 5): DataFrame = {
     require(!df.isEmpty, "dataframe is empty")
 
-    df.groupBy(col("opening_name"))
+    df.groupBy(col("opening_eco"), col("opening_name"))
       .agg(count("*").alias("games_played"))
       .orderBy(col("games_played").desc)
       .limit(topN)
