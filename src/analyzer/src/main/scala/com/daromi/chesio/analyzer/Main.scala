@@ -1,59 +1,27 @@
 package com.daromi.chesio.analyzer
 
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types._
+import com.daromi.chesio.analyzer.games.{GamesAnalyzer, GamesPreprocessor}
+import com.daromi.chesio.analyzer.spark.SparkUtils
 
-object Main extends App {
-  val spark = SparkSession
-    .builder()
-    .appName("analyzer")
-    .master("local[8]")
-    .getOrCreate()
+private object Config {
+  val SparkAppName: String = "games"
+  val SparkMaster: String  = "local[8]"
+  val DatasetPath: String  = "datasets/games.csv"
+}
 
-  spark.sparkContext.setLogLevel("WARN")
+object Main {
 
-  val DatasetPath = "datasets/games.csv"
+  def main(args: Array[String]): Unit = {
+    val spark = SparkUtils.init(Config.SparkAppName, Config.SparkMaster)
 
-  // Define schema
-  val schema = StructType(
-    Seq(
-      StructField("id", StringType, nullable = false),
-      StructField("rated", StringType, nullable = false),
-      StructField("created_at", DoubleType, nullable = false),
-      StructField("last_move_at", DoubleType, nullable = false),
-      StructField("turns", IntegerType, nullable = false),
-      StructField("victory_status", StringType, nullable = false),
-      StructField("winner", StringType, nullable = false),
-      StructField("increment_code", StringType, nullable = false),
-      StructField("white_id", StringType, nullable = false),
-      StructField("white_rating", IntegerType, nullable = false),
-      StructField("black_id", StringType, nullable = false),
-      StructField("black_rating", IntegerType, nullable = false),
-      StructField("moves", StringType, nullable = false),
-      StructField("opening_eco", StringType, nullable = false),
-      StructField("opening_name", StringType, nullable = false),
-      StructField("opening_ply", IntegerType, nullable = false)
-    )
-  )
+    val preprocessor = new GamesPreprocessor(spark)
 
-  // Read dataset
-  val games =
-    spark.read
-      .option("header", "true")
-      .schema(schema)
-      .csv(DatasetPath)
-      .na
-      .drop()
+    val df = preprocessor.readCsv(Config.DatasetPath)
 
-  games.printSchema()
-  games.show()
+    val topOpenings = GamesAnalyzer.topOpenings(df)
 
-  // Query
-  games
-    .groupBy(col("opening_name"))
-    .count()
-    .orderBy(col("count").desc)
-    .limit(5)
-    .show()
+    topOpenings.show()
+
+    // TODO: Ensure proper Spark session cleanup
+  }
 }
